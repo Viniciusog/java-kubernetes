@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+  namespace: dev-to
+  labels:
+    app: myapp
+spec:
+  # Aqui temos a quantidade de instâncias da nossa aplicação, que irá ficar sempre ativa para caso algo der erro em uma
+  # a outra substitua o lugar rapidamente
+  replicas: 1
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+      metadata:
+        labels:
+          app: myapp
+      spec:
+        containers:
+          - name: myapp
+            image: java-k8s:latest
+            # Diz para nunca procurar essa imagem no Dockerhub, pois ela está apenas local
+            imagePullPolicy: Never
+            ports:
+              - containerPort: 8080
+                name: http
+	    # Variáveis de ambiente vem de onde ? Do config map: nome é myapp. Arquivo é: app-configmap.yaml
+            envFrom:
+              - configMapRef:
+                  name: myapp
+            # Diz para o cliente que está apta para receber request
+            livenessProbe:
+              httpGet:
+                path: /app/actuator/health/liveness
+                port: 8080
+              initialDelaySeconds: 30
+            #Sempre vai ficar pingando na aplicação dizendo que está ativo. Caso não diga que está ok, 
+            #a nossa aplicação irá matar esse pod e subir outro pod (outra instância)
+	    readinessProbe:
+              httpGet:
+                path: /app/actuator/health/readiness
+                port: 8080
+              initialDelaySeconds: 30
+            resources:
+              requests:
+                memory: "512Mi"
+                cpu: "0.5"
+              limits:
+                memory: "1024Mi"
+                cpu: "1"
+
